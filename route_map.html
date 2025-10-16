@@ -21,6 +21,45 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors'
     }).addTo(map);
+
+    // Add a weather radar overlay using RainViewer
+    // RainViewer provides radar map tiles for personal use. The API returns the
+    // latest available radar map path in its JSON response【801113476249795†L50-L60】.
+    // We fetch this path and build a tile layer URL. The overlay is refreshed
+    // every 10 minutes so the radar stays up to date.
+    var rainLayer;
+    function addRainLayer() {
+      fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          // Use nowcast frames if available, otherwise fall back to past frames
+          var frames = [];
+          if (data.radar && data.radar.nowcast && data.radar.nowcast.length) {
+            frames = data.radar.nowcast;
+          } else if (data.radar && data.radar.past && data.radar.past.length) {
+            frames = data.radar.past;
+          }
+          if (!frames.length) { return; }
+          var path = frames[0].path;
+          var tileUrl = 'https://tilecache.rainviewer.com' + path + '/256/{z}/{x}/{y}/2/1_1.png';
+          // Remove previous layer if exists
+          if (rainLayer) {
+            map.removeLayer(rainLayer);
+          }
+          rainLayer = L.tileLayer(tileUrl, {
+            opacity: 0.6,
+            zIndex: 2,
+            attribution: 'Weather radar © RainViewer'
+          });
+          rainLayer.addTo(map);
+        })
+        .catch(function(err) {
+          console.error('Error loading radar data', err);
+        });
+    }
+    // Load initial radar overlay and schedule periodic updates (10 minutes)
+    addRainLayer();
+    setInterval(addRainLayer, 600000);
     // Define icons
     var defaultIcon = L.icon({
       iconUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',

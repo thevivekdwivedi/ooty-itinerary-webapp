@@ -18,6 +18,43 @@
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution:'&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors'
   }).addTo(map);
+
+  // Add a weather radar overlay using RainViewer
+  // RainViewer provides radar map tiles for personal use. The API returns
+  // the latest available radar map path in its JSON response【801113476249795†L50-L60】.
+  // We fetch this path and build a tile layer URL. The overlay is refreshed
+  // every 10 minutes so the radar stays up to date.
+  var rainLayer;
+  function addRainLayer() {
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var frames = [];
+        if (data.radar && data.radar.nowcast && data.radar.nowcast.length) {
+          frames = data.radar.nowcast;
+        } else if (data.radar && data.radar.past && data.radar.past.length) {
+          frames = data.radar.past;
+        }
+        if (!frames.length) { return; }
+        var path = frames[0].path;
+        var tileUrl = 'https://tilecache.rainviewer.com' + path + '/256/{z}/{x}/{y}/2/1_1.png';
+        if (rainLayer) {
+          map.removeLayer(rainLayer);
+        }
+        rainLayer = L.tileLayer(tileUrl, {
+          opacity: 0.6,
+          zIndex: 2,
+          attribution: 'Weather radar © RainViewer'
+        });
+        rainLayer.addTo(map);
+      })
+      .catch(function(err) {
+        console.error('Error loading radar data', err);
+      });
+  }
+  // Load initial radar overlay and schedule periodic updates (10 minutes)
+  addRainLayer();
+  setInterval(addRainLayer, 600000);
   var defaultIcon = L.icon({
     iconUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
     iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', shadowSize:[41,41]
@@ -28,13 +65,13 @@
   });
   // Timeline for Ayatana itinerary
   var timeline = [
-    {time:'14:00 18 Oct', name:'Boardwalk & pool (weather permitting; indoor spa if rainy)', coords:[11.3542,76.7670]},
-    {time:'17:00 18 Oct', name:'Firepit evening at resort (indoors if rainy)', coords:[11.3542,76.7670]},
-    {time:'08:30 19 Oct', name:'Sim’s Park (Coonoor – weather permitting)', coords:[11.3500,76.8210]},
-    {time:'10:30 19 Oct', name:'Nilgiri Mountain Railway ride (check weather)', coords:[11.4064,76.6931]},
-    {time:'14:00 19 Oct', name:'Pykara Lake (weather permitting)', coords:[11.3830,76.5983]},
-    {time:'16:00 19 Oct', name:'Wenlock Downs (weather permitting)', coords:[11.4066,76.6111]},
-    {time:'18:30 19 Oct', name:'Spa & firepit at resort (indoors if rainy)', coords:[11.3542,76.7670]}
+    {time:'14:00 18 Oct', name:'Boardwalk & pool', coords:[11.3542,76.7670]},
+    {time:'17:00 18 Oct', name:'Firepit evening at resort', coords:[11.3542,76.7670]},
+    {time:'08:30 19 Oct', name:'Sim’s Park (Coonoor)', coords:[11.3500,76.8210]},
+    {time:'10:30 19 Oct', name:'Nilgiri Mountain Railway ride (Ooty station)', coords:[11.4064,76.6931]},
+    {time:'14:00 19 Oct', name:'Pykara Lake', coords:[11.3830,76.5983]},
+    {time:'16:00 19 Oct', name:'Wenlock Downs', coords:[11.4066,76.6111]},
+    {time:'18:30 19 Oct', name:'Spa & firepit at resort', coords:[11.3542,76.7670]}
   ];
   var markers=[];
   timeline.forEach(function(item){

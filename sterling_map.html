@@ -18,6 +18,43 @@
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution:'&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors'
   }).addTo(map);
+
+  // Add a weather radar overlay using RainViewer
+  // RainViewer provides radar map tiles for personal use. The API returns
+  // the latest available radar map path in its JSON response【801113476249795†L50-L60】.
+  // We fetch this path and build a tile layer URL. The overlay is refreshed
+  // every 10 minutes so the radar stays up to date.
+  var rainLayer;
+  function addRainLayer() {
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var frames = [];
+        if (data.radar && data.radar.nowcast && data.radar.nowcast.length) {
+          frames = data.radar.nowcast;
+        } else if (data.radar && data.radar.past && data.radar.past.length) {
+          frames = data.radar.past;
+        }
+        if (!frames.length) { return; }
+        var path = frames[0].path;
+        var tileUrl = 'https://tilecache.rainviewer.com' + path + '/256/{z}/{x}/{y}/2/1_1.png';
+        if (rainLayer) {
+          map.removeLayer(rainLayer);
+        }
+        rainLayer = L.tileLayer(tileUrl, {
+          opacity: 0.6,
+          zIndex: 2,
+          attribution: 'Weather radar © RainViewer'
+        });
+        rainLayer.addTo(map);
+      })
+      .catch(function(err) {
+        console.error('Error loading radar data', err);
+      });
+  }
+  // Load initial radar overlay and schedule periodic updates (10 minutes)
+  addRainLayer();
+  setInterval(addRainLayer, 600000);
   // Define custom icons
   var defaultIcon = L.icon({
     iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
@@ -38,14 +75,14 @@
   // Timeline entries for Sterling itinerary
   var timeline = [
     {time:'12:30 18 Oct', name:'Check‑in & lunch at Sterling Fern Hill', coords:[11.4000,76.7050]},
-    {time:'14:00 18 Oct', name:'Garden walk at resort (indoors/spa if rainy)', coords:[11.4000,76.7050]},
-    {time:'16:00 18 Oct', name:'Boating at Ooty Lake (weather permitting)', coords:[11.4034,76.6952]},
-    {time:'18:30 18 Oct', name:'Dinner & cultural show (indoors)', coords:[11.4000,76.7050]},
-    {time:'08:30 19 Oct', name:'Botanical Garden (weather permitting or Museum)', coords:[11.4127,76.7031]},
-    {time:'10:00 19 Oct', name:'Rose Garden (weather permitting)', coords:[11.4163,76.7183]},
-    {time:'12:00 19 Oct', name:'Doddabetta Peak (weather permitting)', coords:[11.4333,76.7372]},
-    {time:'15:00 19 Oct', name:'Tea Factory (indoors)', coords:[11.4107,76.7063]},
-    {time:'16:30 19 Oct', name:'Bonfire & games at resort (indoor activities if rain)', coords:[11.4000,76.7050]}
+    {time:'14:00 18 Oct', name:'Garden walk at resort', coords:[11.4000,76.7050]},
+    {time:'16:00 18 Oct', name:'Boating at Ooty Lake', coords:[11.4034,76.6952]},
+    {time:'18:30 18 Oct', name:'Dinner & cultural show', coords:[11.4000,76.7050]},
+    {time:'08:30 19 Oct', name:'Botanical Garden', coords:[11.4127,76.7031]},
+    {time:'10:00 19 Oct', name:'Rose Garden', coords:[11.4163,76.7183]},
+    {time:'12:00 19 Oct', name:'Doddabetta Peak', coords:[11.4333,76.7372]},
+    {time:'15:00 19 Oct', name:'Tea Factory', coords:[11.4107,76.7063]},
+    {time:'16:30 19 Oct', name:'Bonfire & games at resort', coords:[11.4000,76.7050]}
   ];
   // Create markers and store them
   var markers = [];
