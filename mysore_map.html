@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bangalore to Mysore Route</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    #map { height: 600px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h4>Timeline</h4>
+  <!-- Slider to step through the itinerary -->
+  <input type="range" id="timeSlider" min="0" max="11" value="0" step="1" style="width:100%" />
+  <div id="timeLabel" style="margin-top:5px;font-weight:bold;">Select a time to highlight a point along the route</div>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    // Initialize map centered between Bangalore and Mysore
+    var map = L.map('map').setView([12.7, 77.1], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Weather radar overlay using RainViewer
+    var rainLayer;
+    function addRainLayer() {
+      fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var frames = [];
+          if (data.radar && data.radar.nowcast && data.radar.nowcast.length) {
+            frames = data.radar.nowcast;
+          } else if (data.radar && data.radar.past && data.radar.past.length) {
+            frames = data.radar.past;
+          }
+          if (!frames.length) { return; }
+          var path = frames[0].path;
+          var tileUrl = 'https://tilecache.rainviewer.com' + path + '/256/{z}/{x}/{y}/2/1_1.png';
+          if (rainLayer) {
+            map.removeLayer(rainLayer);
+          }
+          rainLayer = L.tileLayer(tileUrl, {
+            opacity: 0.6,
+            zIndex: 2,
+            attribution: 'Weather radar © RainViewer'
+          });
+          rainLayer.addTo(map);
+        })
+        .catch(function(err) {
+          console.error('Error loading radar data', err);
+        });
+    }
+    addRainLayer();
+    // refresh radar every 10 minutes
+    setInterval(addRainLayer, 600000);
+
+    // Marker icons
+    var defaultIcon = L.icon({
+      iconUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+      iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', shadowSize:[41,41]
+    });
+    var highlightIcon = L.icon({
+      iconUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x-red.png',
+      iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', shadowSize:[41,41]
+    });
+
+    // Timeline events for the Mysore trip
+    var timeline = [
+      {time:'07:00 18 Oct', name:'Depart – Bangalore', coords:[12.9716, 77.5946]},
+      {time:'10:00 18 Oct', name:'Check‑in – Silent Shores Resort', coords:[12.3217, 76.5670]},
+      {time:'15:00 18 Oct', name:'Mysore Palace tour', coords:[12.3051, 76.6551]},
+      {time:'18:30 18 Oct', name:'Dinner & relax at resort', coords:[12.3217, 76.5670]},
+      {time:'06:30 19 Oct', name:'Chamundi Hill sunrise', coords:[12.2728, 76.6747]},
+      {time:'10:00 19 Oct', name:'Mysore Zoo visit', coords:[12.3037, 76.6600]},
+      {time:'12:30 19 Oct', name:'Lunch & rest at resort', coords:[12.3217, 76.5670]},
+      {time:'14:30 19 Oct', name:"St. Philomena’s Cathedral", coords:[12.3142, 76.6560]},
+      {time:'15:30 19 Oct', name:'Devaraja Market', coords:[12.3050, 76.6570]},
+      {time:'18:00 19 Oct', name:'Return to resort', coords:[12.3217, 76.5670]},
+      {time:'09:00 20 Oct', name:'Brindavan Gardens', coords:[12.4229, 76.5764]},
+      {time:'14:00 20 Oct', name:'Depart – Bangalore', coords:[12.9716, 77.5946]}
+    ];
+
+    // Create markers
+    var markers = [];
+    timeline.forEach(function(item) {
+      var marker = L.marker(item.coords,{icon:defaultIcon}).addTo(map).bindPopup(item.name);
+      markers.push(marker);
+    });
+
+    // Draw simplified route polyline
+    var fullRoute = [
+      [12.9716, 77.5946], // Bangalore
+      [12.3217, 76.5670], // Silent Shores Resort
+      [12.3051, 76.6551], // Mysore Palace
+      [12.4229, 76.5764], // Brindavan Gardens
+      [12.9716, 77.5946]  // Back to Bangalore
+    ];
+    var polyline = L.polyline(fullRoute, {color:'blue', weight:4}).addTo(map);
+    map.fitBounds(polyline.getBounds());
+
+    // Slider handling
+    var slider = document.getElementById('timeSlider');
+    var label = document.getElementById('timeLabel');
+    function updateHighlight(idx) {
+      markers.forEach(function(m) { m.setIcon(defaultIcon); });
+      markers[idx].setIcon(highlightIcon);
+      label.textContent = timeline[idx].time + ' – ' + timeline[idx].name;
+      map.panTo(timeline[idx].coords);
+      markers[idx].openPopup();
+    }
+    slider.addEventListener('input', function(e) {
+      updateHighlight(parseInt(e.target.value));
+    });
+    updateHighlight(0);
+  </script>
+</body>
+</html>
