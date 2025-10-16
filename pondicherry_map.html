@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bangalore to Pondicherry Route</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    #map { height: 600px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h4>Timeline</h4>
+  <input type="range" id="timeSlider" min="0" max="9" value="0" step="1" style="width:100%" />
+  <div id="timeLabel" style="margin-top:5px;font-weight:bold;">Select a time to highlight a point along the route</div>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    // Initialise map centered between Bangalore and Pondicherry
+    var map = L.map('map').setView([12.5, 78.5], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Weather radar overlay
+    var rainLayer;
+    function addRainLayer() {
+      fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var frames = [];
+          if (data.radar && data.radar.nowcast && data.radar.nowcast.length) {
+            frames = data.radar.nowcast;
+          } else if (data.radar && data.radar.past && data.radar.past.length) {
+            frames = data.radar.past;
+          }
+          if (!frames.length) { return; }
+          var path = frames[0].path;
+          var tileUrl = 'https://tilecache.rainviewer.com' + path + '/256/{z}/{x}/{y}/2/1_1.png';
+          if (rainLayer) {
+            map.removeLayer(rainLayer);
+          }
+          rainLayer = L.tileLayer(tileUrl, {
+            opacity: 0.6,
+            zIndex: 2,
+            attribution: 'Weather radar © RainViewer'
+          });
+          rainLayer.addTo(map);
+        })
+        .catch(function(err) {
+          console.error('Error loading radar data', err);
+        });
+    }
+    addRainLayer();
+    setInterval(addRainLayer, 600000);
+
+    // Icons
+    var defaultIcon = L.icon({
+      iconUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+      iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', shadowSize:[41,41]
+    });
+    var highlightIcon = L.icon({
+      iconUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x-red.png',
+      iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowUrl:'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png', shadowSize:[41,41]
+    });
+
+    // Timeline events for Pondicherry trip
+    var timeline = [
+      {time:'05:30 18 Oct', name:'Depart – Bangalore', coords:[12.9716,77.5946]},
+      {time:'08:00 18 Oct', name:'Breakfast – Krishnagiri', coords:[12.5186,78.2130]},
+      {time:'12:30 18 Oct', name:'Arrive – Radisson Resort Pondicherry Bay', coords:[11.8639,79.8217]},
+      {time:'15:00 18 Oct', name:'Paradise Beach walk', coords:[11.8600,79.8120]},
+      {time:'09:00 19 Oct', name:'White Town heritage walk', coords:[11.9325,79.8290]},
+      {time:'11:00 19 Oct', name:'Sri Aurobindo Ashram', coords:[11.9362,79.8306]},
+      {time:'13:00 19 Oct', name:'Auroville – Matrimandir viewpoint', coords:[12.0058,79.8082]},
+      {time:'16:30 19 Oct', name:'Promenade Beach sunset', coords:[11.9360,79.8357]},
+      {time:'08:30 20 Oct', name:'Boat ride – Chunnambar Boat House', coords:[11.8619,79.8244]},
+      {time:'18:00 20 Oct', name:'Return – Bangalore', coords:[12.9716,77.5946]}
+    ];
+
+    var markers = [];
+    timeline.forEach(function(item) {
+      var marker = L.marker(item.coords,{icon:defaultIcon}).addTo(map).bindPopup(item.name);
+      markers.push(marker);
+    });
+
+    // Route polyline
+    var fullRoute = [
+      [12.9716,77.5946], // Bangalore
+      [12.5186,78.2130], // Krishnagiri
+      [11.8639,79.8217], // Resort near Pondicherry
+      [11.9325,79.8290]  // Pondicherry city
+    ];
+    var polyline = L.polyline(fullRoute, {color:'blue', weight:4}).addTo(map);
+    map.fitBounds(polyline.getBounds());
+
+    var slider = document.getElementById('timeSlider');
+    var label = document.getElementById('timeLabel');
+    function updateHighlight(idx) {
+      markers.forEach(function(m) { m.setIcon(defaultIcon); });
+      markers[idx].setIcon(highlightIcon);
+      label.textContent = timeline[idx].time + ' – ' + timeline[idx].name;
+      map.panTo(timeline[idx].coords);
+      markers[idx].openPopup();
+    }
+    slider.addEventListener('input', function(e) {
+      updateHighlight(parseInt(e.target.value));
+    });
+    updateHighlight(0);
+  </script>
+</body>
+</html>
